@@ -476,133 +476,64 @@ function Features() {
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 
-const PLANS = [
-  {
-    name:     'Gratuit',
-    price:    '0',
-    period:   '/mois',
-    desc:     'Pour démarrer et tester.',
-    cta:      'Commencer gratuitement',
-    ctaHref:  '/register',
-    popular:  false,
-    features: [
-      '3 devis par mois',
-      'PDF téléchargeable',
-      'Logo personnalisé',
-      'Support email',
-    ],
-    missing: [
-      'Signature électronique',
-      'Paiement en ligne',
-      'Relances automatiques',
-    ],
-  },
-  {
-    name:     'Pro',
-    price:    '49',
-    period:   '/mois',
-    desc:     "L'outil complet pour les artisans actifs.",
-    cta:      'Commencer l\'essai gratuit',
-    ctaHref:  '/register?plan=pro',
-    popular:  true,
-    features: [
-      'Devis illimités',
-      'Signature électronique légale',
-      'Paiement en ligne intégré',
-      'Relances automatiques',
-      'Tableau de bord complet',
-      'Support prioritaire',
-    ],
-    missing: [],
-  },
-  {
-    name:     'Équipe',
-    price:    '99',
-    period:   '/mois',
-    desc:     'Pour les entreprises qui grandissent.',
-    cta:      'Nous contacter',
-    ctaHref:  'mailto:hello@kantoo.fr',
-    popular:  false,
-    features: [
-      'Tout du plan Pro',
-      "Jusqu'à 5 utilisateurs",
-      'Espace client dédié',
-      'Export comptable',
-      'Onboarding personnalisé',
-    ],
-    missing: [],
-  },
+const PRICING_FEATURES = [
+  'Devis illimités',
+  'Signature électronique',
+  'Envoi par lien',
+  'Tableau de bord',
 ]
 
 function Pricing() {
   return (
     <section className="bg-gray-50 py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <FadeIn className="mb-16 text-center">
+        <FadeIn className="mb-12 text-center">
           <h2 className="text-3xl font-extrabold text-kantoo-text sm:text-4xl">
-            Tarifs simples, sans surprise
+            Tarifs en cours de définition
           </h2>
-          <p className="mt-3 text-gray-500">14 jours d&apos;essai gratuit sur tous les plans payants.</p>
+          <p className="mx-auto mt-3 max-w-xl text-gray-500">
+            On est en phase de lancement. Rejoins les premiers artisans et teste
+            gratuitement pendant 3 mois.
+          </p>
         </FadeIn>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {PLANS.map(({ name, price, period, desc, cta, ctaHref, popular, features, missing }, i) => (
-            <FadeIn key={name} delay={i * 80}>
-              <div
-                className={cn(
-                  'relative flex h-full flex-col rounded-2xl bg-white p-8',
-                  popular
-                    ? 'border-2 border-orange-500 shadow-xl shadow-orange-100'
-                    : 'border border-gray-100 shadow-card'
-                )}
-              >
-                {popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full bg-orange-500 px-4 py-1 text-xs font-bold text-white shadow-sm">
-                      Le plus populaire
-                    </span>
-                  </div>
-                )}
+        <FadeIn className="mx-auto max-w-md">
+          <div className="relative rounded-2xl border-2 border-orange-500 bg-white p-8 shadow-xl shadow-orange-100 text-center">
+            {/* Badge */}
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+              <span className="rounded-full bg-orange-500 px-4 py-1 text-xs font-bold text-white shadow-sm">
+                Offre de lancement
+              </span>
+            </div>
 
-                <div className="mb-6">
-                  <p className="font-bold text-kantoo-text">{name}</p>
-                  <div className="mt-2 flex items-end gap-1">
-                    <span className="text-4xl font-extrabold text-kantoo-text">{price}€</span>
-                    <span className="mb-1 text-sm text-gray-400">{period}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-gray-500">{desc}</p>
-                </div>
+            {/* Title */}
+            <p className="mt-2 text-lg font-extrabold text-kantoo-text">
+              Accès complet gratuit pendant 3 mois
+            </p>
 
-                <ul className="flex-1 space-y-3">
-                  {features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                      <Check className="h-4 w-4 shrink-0 text-green-500" strokeWidth={2.5} />
-                      {f}
-                    </li>
-                  ))}
-                  {missing.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-300 line-through">
-                      <X className="h-4 w-4 shrink-0 text-gray-200" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+            {/* Features */}
+            <ul className="mt-6 space-y-3 text-left">
+              {PRICING_FEATURES.map((f) => (
+                <li key={f} className="flex items-center gap-3 text-sm text-gray-700">
+                  <Check className="h-4 w-4 shrink-0 text-green-500" strokeWidth={2.5} />
+                  {f}
+                </li>
+              ))}
+            </ul>
 
-                <Link
-                  href={ctaHref}
-                  className={cn(
-                    'mt-8 flex items-center justify-center rounded-xl px-6 py-3 text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98]',
-                    popular
-                      ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
-                      : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                  )}
-                >
-                  {cta}
-                </Link>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+            {/* CTA */}
+            <Link
+              href="/register"
+              className="mt-8 flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
+            >
+              Demander mon accès gratuit
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <p className="mt-3 text-xs text-gray-400">
+              Sans carte bancaire · Accès immédiat
+            </p>
+          </div>
+        </FadeIn>
       </div>
     </section>
   )
