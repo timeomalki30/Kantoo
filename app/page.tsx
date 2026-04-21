@@ -539,73 +539,6 @@ function Pricing() {
   )
 }
 
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-
-const TESTIMONIALS = [
-  {
-    initials: 'RB',
-    name:     'Rayan Bencherif',
-    job:      'Carreleur, Marseille',
-    bg:       'bg-orange-100',
-    text:     'text-orange-700',
-    quote:    "Avant je perdais 1h par devis sur Excel. Maintenant c'est 3 minutes depuis mon téléphone sur le chantier. Mes clients sont bluffés.",
-  },
-  {
-    initials: 'LM',
-    name:     'Lucas Moreira',
-    job:      'Plombier, Toulouse',
-    bg:       'bg-blue-100',
-    text:     'text-blue-700',
-    quote:    "J'ai décroché un chantier de 12 000€ parce que j'ai envoyé mon devis en premier. L'autre artisan a mis 3 jours. Moi, 20 minutes après la visite.",
-  },
-  {
-    initials: 'JK',
-    name:     'Jawad Karimi',
-    job:      'Électricien, Lyon',
-    bg:       'bg-green-100',
-    text:     'text-green-700',
-    quote:    "La signature en ligne c'est un game changer. Le client signe depuis son canapé, moi je commence le chantier le lendemain. Fini les allers-retours.",
-  },
-]
-
-function Testimonials() {
-  return (
-    <section className="py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <FadeIn className="mb-16 text-center">
-          <h2 className="text-3xl font-extrabold text-kantoo-text sm:text-4xl">
-            Ils ont déjà sauté le pas
-          </h2>
-        </FadeIn>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {TESTIMONIALS.map(({ initials, name, job, bg, text, quote }, i) => (
-            <FadeIn key={name} delay={i * 100}>
-              <div className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-7 shadow-card">
-                <div className="mb-4 flex items-center gap-0.5">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="flex-1 text-sm leading-relaxed text-gray-600">&ldquo;{quote}&rdquo;</p>
-                <div className="mt-6 flex items-center gap-3">
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold', bg, text)}>
-                    {initials}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-kantoo-text">{name}</p>
-                    <p className="text-xs text-gray-400">{job}</p>
-                  </div>
-                </div>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 
 const FAQS = [
@@ -735,7 +668,6 @@ export default function LandingPage() {
         <ProblemSolution />
         <Features />
         <Pricing />
-        <Testimonials />
         <FAQ />
         <CTABanner />
       </main>
