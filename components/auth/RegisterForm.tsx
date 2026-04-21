@@ -83,7 +83,7 @@ export function RegisterForm() {
       metier:    data.metier,
     })
 
-    router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
+    router.push('/onboarding')
     router.refresh()
   }
 
