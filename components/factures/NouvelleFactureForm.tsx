@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Send, Save, FileCheck, ChevronLeft, AlertCircle } from 'lucide-react'
+import { Plus, Send, Save, FileCheck, ChevronLeft, AlertCircle, Lock } from 'lucide-react'
 import { nanoid } from 'nanoid'
 
 import { Button } from '@/components/ui/Button'
@@ -14,6 +14,7 @@ import { PrestationRow, PrestationCard } from '@/components/devis/PrestationRow'
 import { TotauxPanel } from '@/components/devis/TotauxPanel'
 import { MobileFactureWizard } from './MobileFactureWizard'
 import { DevisPreviewModal } from '@/components/devis/DevisPreviewModal'
+import { createClient } from '@/lib/supabase/client'
 
 import {
   calculerTotaux,
@@ -25,14 +26,9 @@ import type { DevisForm, FactureForm, Prestation, ConditionsPaiement } from '@/t
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DEV_ARTISAN = {
-  name:    'Timéo Dev',
-  email:   'dev@kantoo.fr',
-  phone:   '06 00 00 00 00',
-  address: '12 rue des Artisans, 75011 Paris',
+const FALLBACK_ARTISAN = {
+  name: 'Votre nom', email: '', phone: '', address: '',
 }
-
-const MOCK_FACTURE_COUNT = 5
 
 const CONDITIONS_OPTIONS = [
   { value: 'comptant', label: 'Comptant à réception' },
@@ -47,18 +43,11 @@ const MENTION_LEGALE =
   "de recouvrement de 40 €."
 
 function prestationVide(): Prestation {
-  return {
-    id:          nanoid(),
-    description: '',
-    quantite:    1,
-    unite:       'forfait',
-    prixHT:      0,
-    tva:         10,
-  }
+  return { id: nanoid(), description: '', quantite: 1, unite: 'forfait', prixHT: 0, tva: 10 }
 }
 
 const INITIAL_STATE: FactureForm = {
-  numero:             genererNumeroFacture(MOCK_FACTURE_COUNT + 1),
+  numero:             genererNumeroFacture(1),
   titre:              '',
   date:               dateAujourdhui(),
   echeanceDate:       dateValidite(30),
@@ -68,24 +57,98 @@ const INITIAL_STATE: FactureForm = {
   prestations:        [prestationVide()],
 }
 
-// ─── Adapter — FactureForm → DevisForm (for modal / document) ────────────────
-
 function toDevisForm(f: FactureForm): DevisForm {
   return { ...f, validiteJours: 0 }
 }
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
-export function NouvelleFactureForm() {
+export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
   const router = useRouter()
   const [form, setForm]           = useState<FactureForm>(INITIAL_STATE)
   const [saving, setSaving]       = useState(false)
   const [sending, setSending]     = useState(false)
   const [saved, setSaved]         = useState(false)
   const [previewOpen, setPreview] = useState(false)
+  const [factureDbId, setFactureDbId] = useState<string | null>(factureId ?? null)
+  const [artisan, setArtisan]     = useState(FALLBACK_ARTISAN)
+  const [tvaNonApplicable, setTvaNonApplicable] = useState(false)
+  const [isEnvoyee, setIsEnvoyee] = useState(false)
+  const [sendError, setSendError] = useState('')
+  const [loading, setLoading]     = useState(!!factureId)
 
-  const totaux      = useMemo(() => calculerTotaux(form.prestations), [form.prestations])
-  const devisForm   = useMemo(() => toDevisForm(form), [form])
+  const totaux    = useMemo(() => calculerTotaux(form.prestations), [form.prestations])
+  const devisForm = useMemo(() => toDevisForm(form), [form])
+
+  // ─── Load profile + facture (edit mode) ────────────────────────────────────
+
+  useEffect(() => {
+    async function init() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const profilePromise = supabase
+        .from('profiles')
+        .select('prenom,nom,email,telephone,adresse,siret,tva_non_applicable')
+        .eq('id', user.id)
+        .single()
+
+      const countPromise = factureId
+        ? supabase.from('factures')
+            .select('*, clients(prenom,nom,telephone,email,adresse)')
+            .eq('id', factureId)
+            .eq('user_id', user.id)
+            .single()
+        : supabase.from('factures')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+
+      const [profileRes, dataRes] = await Promise.all([profilePromise, countPromise])
+
+      // Artisan info
+      if (profileRes.data) {
+        const p = profileRes.data
+        const fullName = [p.prenom, p.nom].filter(Boolean).join(' ') || user.email || 'Artisan'
+        setArtisan({ name: fullName, email: p.email ?? user.email ?? '', phone: p.telephone ?? '', address: p.adresse ?? '' })
+        setTvaNonApplicable(!!(p as { tva_non_applicable?: boolean }).tva_non_applicable)
+      }
+
+      if (factureId) {
+        // Edit mode — load existing facture
+        const f = (dataRes as { data: Record<string, unknown> | null }).data
+        if (f) {
+          setFactureDbId(f.id as string)
+          const envoyee = f.statut === 'envoyee'
+          setIsEnvoyee(envoyee)
+
+          const clientData = f.clients as { prenom?: string; nom?: string; telephone?: string; email?: string; adresse?: string } | null
+
+          setForm({
+            numero:             (f.numero as string) ?? genererNumeroFacture(1),
+            titre:              (f.titre as string)  ?? '',
+            date:               (f.date_emission as string) ?? dateAujourdhui(),
+            echeanceDate:       (f.date_echeance as string) ?? dateValidite(30),
+            conditionsPaiement: ((f.conditions_paiement as ConditionsPaiement) ?? '30j'),
+            messageClient:      (f.message_client as string) ?? '',
+            client: clientData ? {
+              nom:       [clientData.prenom, clientData.nom].filter(Boolean).join(' '),
+              telephone: clientData.telephone ?? '',
+              email:     clientData.email     ?? '',
+              adresse:   clientData.adresse   ?? '',
+            } : { nom: '', telephone: '', email: '', adresse: '' },
+            prestations: (f.prestations as Prestation[]) ?? [prestationVide()],
+          })
+        }
+        setLoading(false)
+      } else {
+        // New facture — use count for numero
+        const count = (dataRes as { count: number | null }).count ?? 0
+        setForm((prev) => ({ ...prev, numero: genererNumeroFacture(count + 1) }))
+      }
+    }
+    init()
+  }, [factureId])
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -94,63 +157,123 @@ export function NouvelleFactureForm() {
   }
 
   const updatePrestation = useCallback((id: string, updated: Prestation) => {
-    setForm((f) => ({
-      ...f,
-      prestations: f.prestations.map((p) => (p.id === id ? updated : p)),
-    }))
+    setForm((f) => ({ ...f, prestations: f.prestations.map((p) => (p.id === id ? updated : p)) }))
   }, [])
 
   const removePrestation = useCallback((id: string) => {
-    setForm((f) => ({
-      ...f,
-      prestations: f.prestations.filter((p) => p.id !== id),
-    }))
+    setForm((f) => ({ ...f, prestations: f.prestations.filter((p) => p.id !== id) }))
   }, [])
 
   function addPrestation() {
     setForm((f) => ({ ...f, prestations: [...f.prestations, prestationVide()] }))
   }
 
-  // ─── Actions ────────────────────────────────────────────────────────────────
+  // ─── Core save logic ──────────────────────────────────────────────────────
+
+  async function persistFacture(statut: 'brouillon' | 'envoyee'): Promise<boolean> {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const t = calculerTotaux(form.prestations)
+
+    // Auto-create or find client
+    let clientId: string | null = null
+    if (form.client.email) {
+      const { data: existing } = await supabase
+        .from('clients').select('id')
+        .eq('user_id', user.id).eq('email', form.client.email).maybeSingle()
+
+      if (existing) {
+        clientId = existing.id
+      } else if (form.client.nom) {
+        const parts = form.client.nom.trim().split(/\s+/)
+        const { data: newClient } = await supabase
+          .from('clients').insert({
+            user_id: user.id, prenom: parts[0] ?? '', nom: parts.slice(1).join(' ') || null,
+            email: form.client.email, telephone: form.client.telephone || null,
+            adresse: form.client.adresse || null,
+          }).select('id').single()
+        clientId = newClient?.id ?? null
+      }
+    }
+
+    const payload = {
+      user_id:             user.id,
+      client_id:           clientId,
+      numero:              form.numero,
+      titre:               form.titre               || null,
+      statut,
+      date_emission:       form.date,
+      date_echeance:       form.echeanceDate,
+      conditions_paiement: form.conditionsPaiement,
+      prestations:         form.prestations,
+      total_ht:            t.totalHT,
+      total_tva:           t.totalTVA,
+      total_ttc:           t.totalTTC,
+      message_client:      form.messageClient        || null,
+    }
+
+    if (factureDbId) {
+      const { error } = await supabase.from('factures').update(payload).eq('id', factureDbId)
+      return !error
+    } else {
+      const { data: inserted, error } = await supabase
+        .from('factures').insert(payload).select('id').single()
+      if (inserted) setFactureDbId(inserted.id)
+      return !error
+    }
+  }
+
+  // ─── Actions ─────────────────────────────────────────────────────────────
 
   async function handleSaveDraft() {
     setSaving(true)
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      await persistFacture('brouillon')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleOpenPreview() {
-    if (!form.client.email) {
-      alert("Veuillez renseigner l'email du client pour envoyer la facture.")
+    if (!form.client.nom) {
+      setSendError('Veuillez renseigner le nom du client avant d\'envoyer.')
       return
     }
+    setSendError('')
     setPreview(true)
   }
 
   async function handleSend() {
     setSending(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setSending(false)
-    setPreview(false)
-    router.push('/factures?facture=envoyee')
+    try {
+      const ok = await persistFacture('envoyee')
+      setPreview(false)
+      if (ok) router.push('/factures')
+    } finally {
+      setSending(false)
+    }
   }
 
-  // ─── Shared props ────────────────────────────────────────────────────────────
+  // ─── Shared props ─────────────────────────────────────────────────────────
 
   const sharedProps = {
-    form,
-    setField,
-    updatePrestation,
-    removePrestation,
-    addPrestation,
-    saving,
-    sending,
-    saved,
+    form, setField, updatePrestation, removePrestation, addPrestation,
+    saving, sending, saved,
     onSave: handleSaveDraft,
     onSend: handleOpenPreview,
     onBack: () => router.back(),
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+      </div>
+    )
   }
 
   return (
@@ -167,45 +290,51 @@ export function NouvelleFactureForm() {
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
+              <button onClick={() => router.back()}
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div>
                 <div className="flex items-center gap-2">
                   <FileCheck className="h-4 w-4 text-orange-500" />
                   <span className="text-sm font-semibold text-kantoo-text">{form.numero}</span>
-                  <Badge status="brouillon" />
+                  <Badge status={isEnvoyee ? 'en_attente' : 'brouillon'} />
+                  {isEnvoyee && <Lock className="h-3.5 w-3.5 text-gray-400" />}
                 </div>
-                <p className="text-xs text-gray-400">Nouvelle facture</p>
+                <p className="text-xs text-gray-400">
+                  {factureId ? 'Détail de la facture' : 'Nouvelle facture'}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {saved && (
-                <span className="text-xs font-medium text-green-600">✓ Brouillon sauvegardé</span>
-              )}
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Save className="h-4 w-4" />}
-                loading={saving}
-                onClick={handleSaveDraft}
-              >
-                Sauvegarder
-              </Button>
-              <Button
-                size="sm"
-                icon={<Send className="h-4 w-4" />}
-                onClick={handleOpenPreview}
-              >
-                Envoyer la facture
-              </Button>
-            </div>
+            {!isEnvoyee && (
+              <div className="flex items-center gap-2">
+                {sendError && <span className="text-xs font-medium text-red-500">{sendError}</span>}
+                {saved && <span className="text-xs font-medium text-green-600">✓ Sauvegardé</span>}
+                <Button variant="secondary" size="sm" icon={<Save className="h-4 w-4" />}
+                  loading={saving} onClick={handleSaveDraft}>
+                  Sauvegarder
+                </Button>
+                <Button size="sm" icon={<Send className="h-4 w-4" />} onClick={handleOpenPreview}>
+                  Envoyer la facture
+                </Button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* ── Bannière facture envoyée ─────────────────────────────────────── */}
+        {isEnvoyee && (
+          <div className="border-b border-orange-400 bg-orange-500 px-6 py-3">
+            <div className="mx-auto flex max-w-6xl items-center gap-3">
+              <Lock className="h-5 w-5 shrink-0 text-white" />
+              <p className="text-sm font-medium text-white">
+                Cette facture a été envoyée et ne peut plus être modifiée.
+                Créez un avoir si nécessaire.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="mx-auto max-w-6xl px-6 py-8">
@@ -216,42 +345,24 @@ export function NouvelleFactureForm() {
 
               {/* Informations */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Informations de la facture</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Informations de la facture</CardTitle></CardHeader>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Input
-                      label="Objet de la facture"
+                    <Input label="Objet de la facture"
                       placeholder="Ex : Rénovation cuisine — 12 rue Voltaire"
-                      value={form.titre}
-                      onChange={(e) => setField('titre', e.target.value)}
-                      required
-                    />
+                      value={form.titre} disabled={isEnvoyee}
+                      onChange={(e) => setField('titre', e.target.value)} required />
                   </div>
-                  <Input
-                    label="Date d'émission"
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setField('date', e.target.value)}
-                  />
-                  <Input
-                    label="Date d'échéance"
-                    type="date"
-                    value={form.echeanceDate}
+                  <Input label="Date d'émission" type="date" value={form.date} disabled={isEnvoyee}
+                    onChange={(e) => setField('date', e.target.value)} />
+                  <Input label="Date d'échéance" type="date" value={form.echeanceDate} disabled={isEnvoyee}
                     onChange={(e) => setField('echeanceDate', e.target.value)}
-                    hint={`Échéance le ${new Intl.DateTimeFormat('fr-FR', {
-                      day: '2-digit', month: 'long', year: 'numeric',
-                    }).format(new Date(form.echeanceDate))}`}
+                    hint={`Échéance le ${new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(form.echeanceDate))}`}
                   />
                   <div className="col-span-2">
-                    <Select
-                      label="Conditions de paiement"
-                      options={CONDITIONS_OPTIONS}
-                      value={form.conditionsPaiement}
-                      onChange={(e) =>
-                        setField('conditionsPaiement', e.target.value as ConditionsPaiement)
-                      }
+                    <Select label="Conditions de paiement" options={CONDITIONS_OPTIONS}
+                      value={form.conditionsPaiement} disabled={isEnvoyee}
+                      onChange={(e) => setField('conditionsPaiement', e.target.value as ConditionsPaiement)}
                     />
                   </div>
                 </div>
@@ -261,6 +372,7 @@ export function NouvelleFactureForm() {
               <ClientSection
                 client={form.client}
                 onChange={(client) => setField('client', client)}
+                disabled={isEnvoyee}
               />
 
               {/* Prestations */}
@@ -273,45 +385,36 @@ export function NouvelleFactureForm() {
                     </span>
                   </CardHeader>
                 </div>
-
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-y border-gray-100 bg-gray-50/60">
-                        {['#', 'Description', 'Qté', 'Unité', 'Prix HT', 'TVA', 'Total HT', ''].map((h) => (
-                          <th key={h} className="px-2 py-2.5 text-left text-xs font-medium text-gray-400 last:w-10">
-                            {h}
-                          </th>
+                        {['#', 'Description', 'Qté', 'Unité', 'Prix HT', ...(tvaNonApplicable ? [] : ['TVA']), 'Total HT', ''].map((h) => (
+                          <th key={h} className="px-2 py-2.5 text-left text-xs font-medium text-gray-400 last:w-10">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {form.prestations.map((p, i) => (
-                        <PrestationRow
-                          key={p.id}
-                          prestation={p}
-                          index={i}
+                        <PrestationRow key={p.id} prestation={p} index={i}
                           onChange={(updated) => updatePrestation(p.id, updated)}
                           onRemove={() => removePrestation(p.id)}
-                          canRemove={form.prestations.length > 1}
+                          canRemove={form.prestations.length > 1 && !isEnvoyee}
+                          tvaNonApplicable={tvaNonApplicable}
                         />
                       ))}
                     </tbody>
                   </table>
                 </div>
-
-                <div className="border-t border-gray-100 p-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    icon={<Plus className="h-4 w-4" />}
-                    onClick={addPrestation}
-                    className="w-full justify-center text-orange-500 hover:bg-orange-50"
-                  >
-                    Ajouter une prestation
-                  </Button>
-                </div>
+                {!isEnvoyee && (
+                  <div className="border-t border-gray-100 p-4">
+                    <Button type="button" variant="ghost" size="sm"
+                      icon={<Plus className="h-4 w-4" />} onClick={addPrestation}
+                      className="w-full justify-center text-orange-500 hover:bg-orange-50">
+                      Ajouter une prestation
+                    </Button>
+                  </div>
+                )}
               </Card>
 
               {/* Message client */}
@@ -320,9 +423,8 @@ export function NouvelleFactureForm() {
                   <CardTitle>Message au client</CardTitle>
                   <span className="text-xs text-gray-400">Optionnel</span>
                 </CardHeader>
-                <Textarea
-                  placeholder="Ex : Merci pour votre confiance. N'hésitez pas à nous contacter..."
-                  value={form.messageClient}
+                <Textarea placeholder="Ex : Merci pour votre confiance…"
+                  value={form.messageClient} disabled={isEnvoyee}
                   onChange={(e) => setField('messageClient', e.target.value)}
                   className="min-h-[100px]"
                 />
@@ -333,8 +435,7 @@ export function NouvelleFactureForm() {
                 <CardHeader>
                   <CardTitle>Mention légale</CardTitle>
                   <span className="flex items-center gap-1 text-xs text-amber-600">
-                    <AlertCircle className="h-3 w-3" />
-                    Obligatoire
+                    <AlertCircle className="h-3 w-3" /> Obligatoire
                   </span>
                 </CardHeader>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -346,59 +447,55 @@ export function NouvelleFactureForm() {
             {/* ── Sidebar ─────────────────────────────────────────────────── */}
             <div>
               <div className="sticky top-20 space-y-4">
-                <TotauxPanel totaux={totaux} />
+                <TotauxPanel totaux={totaux} tvaNonApplicable={tvaNonApplicable} />
 
-                <div className="space-y-2">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    icon={<Save className="h-5 w-5" />}
-                    loading={saving}
-                    onClick={handleSaveDraft}
-                    className="w-full"
-                  >
-                    Sauvegarder brouillon
-                  </Button>
-                  <Button
-                    size="lg"
-                    icon={<Send className="h-5 w-5" />}
-                    onClick={handleOpenPreview}
-                    className="w-full"
-                  >
-                    Envoyer la facture
-                  </Button>
-                </div>
+                {!isEnvoyee && (
+                  <div className="space-y-2">
+                    <Button variant="secondary" size="lg" icon={<Save className="h-5 w-5" />}
+                      loading={saving} onClick={handleSaveDraft} className="w-full">
+                      Sauvegarder brouillon
+                    </Button>
+                    <Button size="lg" icon={<Send className="h-5 w-5" />}
+                      onClick={handleOpenPreview} className="w-full">
+                      Envoyer la facture
+                    </Button>
+                  </div>
+                )}
 
                 {saved && (
-                  <p className="text-center text-xs font-medium text-green-600">
-                    ✓ Brouillon sauvegardé
-                  </p>
+                  <p className="text-center text-xs font-medium text-green-600">✓ Brouillon sauvegardé</p>
+                )}
+
+                {isEnvoyee && (
+                  <div className="rounded-xl bg-orange-50 p-4 text-center">
+                    <Lock className="mx-auto mb-2 h-5 w-5 text-orange-400" />
+                    <p className="text-xs font-medium text-orange-700">Facture verrouillée</p>
+                    <p className="mt-1 text-xs text-orange-500">Envoyée au client — non modifiable</p>
+                  </div>
                 )}
 
                 <div className="rounded-xl bg-amber-50 p-4">
-                  <p className="text-xs leading-relaxed text-amber-700">
-                    {MENTION_LEGALE}
-                  </p>
+                  <p className="text-xs leading-relaxed text-amber-700">{MENTION_LEGALE}</p>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* ════ PREVIEW MODAL ══════════════════════════════════════════════════ */}
+      {/* Preview modal */}
       {previewOpen && (
         <DevisPreviewModal
           form={devisForm}
           totaux={totaux}
-          artisan={DEV_ARTISAN}
+          artisan={artisan}
           sending={sending}
           onClose={() => setPreview(false)}
           onConfirm={handleSend}
           factureMode
           echeanceDate={form.echeanceDate}
           conditionsPaiement={form.conditionsPaiement}
+          tvaNonApplicable={tvaNonApplicable}
         />
       )}
     </>

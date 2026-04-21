@@ -12,10 +12,10 @@ interface DevisPreviewModalProps {
   sending:  boolean
   onClose:  () => void
   onConfirm: () => void
-  // Facture-mode props — passed through to DevisDocument
   factureMode?:        boolean
   echeanceDate?:       string
   conditionsPaiement?: string
+  tvaNonApplicable?:   boolean
 }
 
 export function DevisPreviewModal({
@@ -28,6 +28,7 @@ export function DevisPreviewModal({
   factureMode = false,
   echeanceDate,
   conditionsPaiement,
+  tvaNonApplicable = false,
 }: DevisPreviewModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -91,6 +92,7 @@ export function DevisPreviewModal({
                 factureMode={factureMode}
                 echeanceDate={echeanceDate}
                 conditionsPaiement={conditionsPaiement}
+                tvaNonApplicable={tvaNonApplicable}
               />
             </div>
           </div>

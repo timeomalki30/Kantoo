@@ -21,17 +21,15 @@ interface DevisDocumentProps {
   form:    DevisForm
   totaux:  TotauxDevis
   artisan: Artisan
-  // Facture-mode overrides — when set, renders as invoice instead of quote
   factureMode?:        boolean
   echeanceDate?:       string
   conditionsPaiement?: string
+  tvaNonApplicable?:   boolean
 }
 
 function fmt(iso: string) {
   return new Intl.DateTimeFormat('fr-FR', {
-    day:   '2-digit',
-    month: 'long',
-    year:  'numeric',
+    day: '2-digit', month: 'long', year: 'numeric',
   }).format(new Date(iso))
 }
 
@@ -40,8 +38,6 @@ function fmtExpiry(date: string, jours: number) {
   d.setDate(d.getDate() + jours)
   return fmt(d.toISOString().split('T')[0])
 }
-
-// ─── Reusable section header ──────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -60,8 +56,27 @@ export function DevisDocument({
   factureMode = false,
   echeanceDate,
   conditionsPaiement,
+  tvaNonApplicable = false,
 }: DevisDocumentProps) {
   const hasClient = form.client.nom || form.client.email
+
+  // Table columns depending on TVA mode
+  const cols = tvaNonApplicable
+    ? [
+        { label: 'Description', cls: 'text-left  px-4 py-3 font-semibold' },
+        { label: 'Qté',         cls: 'text-right px-3 py-3 font-semibold w-14' },
+        { label: 'Unité',       cls: 'text-left  px-3 py-3 font-semibold w-16' },
+        { label: 'PU HT',       cls: 'text-right px-3 py-3 font-semibold w-24' },
+        { label: 'Total HT',    cls: 'text-right px-4 py-3 font-semibold w-28' },
+      ]
+    : [
+        { label: 'Description', cls: 'text-left  px-4 py-3 font-semibold' },
+        { label: 'Qté',         cls: 'text-right px-3 py-3 font-semibold w-14' },
+        { label: 'Unité',       cls: 'text-left  px-3 py-3 font-semibold w-16' },
+        { label: 'PU HT',       cls: 'text-right px-3 py-3 font-semibold w-24' },
+        { label: 'TVA',         cls: 'text-right px-3 py-3 font-semibold w-14' },
+        { label: 'Total HT',    cls: 'text-right px-4 py-3 font-semibold w-28' },
+      ]
 
   return (
     <div
@@ -69,9 +84,8 @@ export function DevisDocument({
       className="mx-auto w-full max-w-[794px] bg-white p-10 font-sans text-[13px] text-gray-800"
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
-      {/* ── Header band ────────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between border-b-2 border-orange-500 pb-6">
-        {/* Logo + artisan */}
         <div>
           <Logo size="sm" className="mb-3" />
           <p className="text-[15px] font-bold text-gray-900">{artisan.name}</p>
@@ -82,8 +96,6 @@ export function DevisDocument({
             <p className="mt-1 text-[11px] text-gray-400">SIRET : {artisan.siret}</p>
           )}
         </div>
-
-        {/* Doc meta */}
         <div className="text-right">
           <div className="inline-block rounded-xl bg-orange-50 px-5 py-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-orange-400">
@@ -92,15 +104,9 @@ export function DevisDocument({
             <p className="text-xl font-bold text-orange-600">{form.numero}</p>
           </div>
           <div className="mt-3 space-y-0.5 text-gray-500">
-            <p>
-              <span className="font-medium text-gray-700">Émis le </span>
-              {fmt(form.date)}
-            </p>
+            <p><span className="font-medium text-gray-700">Émis le </span>{fmt(form.date)}</p>
             {factureMode && echeanceDate ? (
-              <p>
-                <span className="font-medium text-gray-700">Échéance le </span>
-                {fmt(echeanceDate)}
-              </p>
+              <p><span className="font-medium text-gray-700">Échéance le </span>{fmt(echeanceDate)}</p>
             ) : !factureMode && form.validiteJours > 0 ? (
               <p>
                 <span className="font-medium text-gray-700">Valable jusqu&apos;au </span>
@@ -113,7 +119,6 @@ export function DevisDocument({
 
       {/* ── Parties ────────────────────────────────────────────────────────── */}
       <div className="mt-6 grid grid-cols-2 gap-6">
-        {/* Artisan */}
         <div className="rounded-xl bg-gray-50 p-4">
           <SectionLabel>De la part de</SectionLabel>
           <p className="font-semibold text-gray-900">{artisan.name}</p>
@@ -121,22 +126,14 @@ export function DevisDocument({
           {artisan.phone   && <p className="text-gray-600">{artisan.phone}</p>}
           <p className="text-gray-600">{artisan.email}</p>
         </div>
-
-        {/* Client */}
         <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-4">
           <SectionLabel>À destination de</SectionLabel>
           {hasClient ? (
             <>
               <p className="font-semibold text-gray-900">{form.client.nom || '—'}</p>
-              {form.client.adresse && (
-                <p className="mt-0.5 text-gray-600">{form.client.adresse}</p>
-              )}
-              {form.client.telephone && (
-                <p className="text-gray-600">{form.client.telephone}</p>
-              )}
-              {form.client.email && (
-                <p className="text-gray-600">{form.client.email}</p>
-              )}
+              {form.client.adresse   && <p className="mt-0.5 text-gray-600">{form.client.adresse}</p>}
+              {form.client.telephone && <p className="text-gray-600">{form.client.telephone}</p>}
+              {form.client.email     && <p className="text-gray-600">{form.client.email}</p>}
             </>
           ) : (
             <p className="italic text-gray-400">Client non renseigné</p>
@@ -157,14 +154,7 @@ export function DevisDocument({
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="bg-gray-900 text-white">
-              {[
-                { label: 'Description',  cls: 'text-left  px-4 py-3 font-semibold' },
-                { label: 'Qté',          cls: 'text-right px-3 py-3 font-semibold w-14' },
-                { label: 'Unité',        cls: 'text-left  px-3 py-3 font-semibold w-16' },
-                { label: 'PU HT',        cls: 'text-right px-3 py-3 font-semibold w-24' },
-                { label: 'TVA',          cls: 'text-right px-3 py-3 font-semibold w-14' },
-                { label: 'Total HT',     cls: 'text-right px-4 py-3 font-semibold w-28' },
-              ].map((h) => (
+              {cols.map((h) => (
                 <th key={h.label} className={h.cls}>{h.label}</th>
               ))}
             </tr>
@@ -173,21 +163,20 @@ export function DevisDocument({
             {form.prestations.map((p, i) => {
               const totalHT = p.quantite * p.prixHT
               return (
-                <tr
-                  key={p.id}
-                  className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}
-                >
+                <tr key={p.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
+                  {/* Description + note en italique */}
                   <td className="px-4 py-3 font-medium text-gray-800">
                     {p.description || <span className="italic text-gray-400">Sans description</span>}
+                    {p.note && (
+                      <p className="mt-0.5 text-[11px] font-normal italic text-gray-500">{p.note}</p>
+                    )}
                   </td>
-                  <td className="px-3 py-3 text-right tabular-nums text-gray-700">
-                    {p.quantite}
-                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums text-gray-700">{p.quantite}</td>
                   <td className="px-3 py-3 text-gray-600">{p.unite}</td>
-                  <td className="px-3 py-3 text-right tabular-nums text-gray-700">
-                    {formatEuros(p.prixHT)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-gray-600">{p.tva} %</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-gray-700">{formatEuros(p.prixHT)}</td>
+                  {!tvaNonApplicable && (
+                    <td className="px-3 py-3 text-right text-gray-600">{p.tva} %</td>
+                  )}
                   <td className="px-4 py-3 text-right font-semibold tabular-nums text-gray-900">
                     {formatEuros(totalHT)}
                   </td>
@@ -203,33 +192,36 @@ export function DevisDocument({
         <div className="w-64 space-y-1.5">
           <Row label="Total HT" value={formatEuros(totaux.totalHT)} />
 
-          {totaux.tvaDetails.length > 0 ? (
-            totaux.tvaDetails.map((t) => (
-              <Row
-                key={t.taux}
-                label={`TVA ${t.taux} %`}
-                value={formatEuros(t.montant)}
-                sub
-              />
-            ))
+          {tvaNonApplicable ? (
+            <p className="text-[11px] italic text-gray-500">
+              TVA non applicable, art. 293B du CGI
+            </p>
           ) : (
-            <Row label="TVA" value="0,00 €" sub />
+            <>
+              {totaux.tvaDetails.length > 0
+                ? totaux.tvaDetails.map((t) => (
+                    <Row key={t.taux} label={`TVA ${t.taux} %`} value={formatEuros(t.montant)} sub />
+                  ))
+                : <Row label="TVA" value="0,00 €" sub />
+              }
+            </>
           )}
 
           <div className="mt-2 border-t-2 border-gray-900 pt-2">
             <div className="flex items-center justify-between">
-              <span className="text-base font-bold text-gray-900">Total TTC</span>
+              <span className="text-base font-bold text-gray-900">
+                {tvaNonApplicable ? 'Total à payer' : 'Total TTC'}
+              </span>
               <span className="text-xl font-bold text-orange-500">
-                {formatEuros(totaux.totalTTC)}
+                {formatEuros(tvaNonApplicable ? totaux.totalHT : totaux.totalTTC)}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Footer — validité (devis) ou conditions (facture) ─────────────── */}
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <div className="mt-8 space-y-4 border-t border-gray-100 pt-6">
-
         {factureMode ? (
           <>
             {conditionsPaiement && (
@@ -279,15 +271,7 @@ export function DevisDocument({
   )
 }
 
-function Row({
-  label,
-  value,
-  sub = false,
-}: {
-  label: string
-  value: string
-  sub?: boolean
-}) {
+function Row({ label, value, sub = false }: { label: string; value: string; sub?: boolean }) {
   return (
     <div className="flex items-center justify-between">
       <span className={sub ? 'text-[12px] text-gray-500' : 'text-[13px] font-medium text-gray-700'}>

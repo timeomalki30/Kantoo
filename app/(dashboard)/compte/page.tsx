@@ -29,6 +29,7 @@ interface ProfileData {
   couleur_principale:   string | null
   message_remerciement: string | null
   conditions_paiement:  string | null
+  tva_non_applicable:   boolean | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -262,6 +263,7 @@ interface EntrepriseFields {
 
 function SectionEntreprise({ profile }: { profile: ProfileData }) {
   const { saving, saved, error, triggerSave } = useSaveState()
+  const [tvaNonApplicable, setTvaNonApplicable] = useState(!!(profile.tva_non_applicable))
 
   const { register, handleSubmit, formState: { errors } } =
     useForm<EntrepriseFields>({
@@ -282,13 +284,14 @@ function SectionEntreprise({ profile }: { profile: ProfileData }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non connecté')
       const { error: dbError } = await supabase.from('profiles').upsert({
-        id:               user.id,
-        nom_entreprise:   data.entreprise        || null,
-        siret:            data.siret             || null,
-        adresse:          data.adresseEntreprise || null,
-        statut_juridique: data.statutJuridique   || null,
-        tva:              data.tva               || null,
-        iban:             data.iban              || null,
+        id:                 user.id,
+        nom_entreprise:     data.entreprise        || null,
+        siret:              data.siret             || null,
+        adresse:            data.adresseEntreprise || null,
+        statut_juridique:   data.statutJuridique   || null,
+        tva:                data.tva               || null,
+        iban:               data.iban              || null,
+        tva_non_applicable: tvaNonApplicable,
       })
       if (dbError) throw new Error(dbError.message)
     })
@@ -329,6 +332,30 @@ function SectionEntreprise({ profile }: { profile: ProfileData }) {
           className="font-mono tracking-wide"
           {...register('iban')}
         />
+
+        {/* Toggle TVA non applicable */}
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5">
+          <div>
+            <p className="text-sm font-semibold text-kantoo-text">Non assujetti à la TVA</p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Art. 293B du CGI — masque la TVA sur tous vos documents
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTvaNonApplicable((v) => !v)}
+            aria-pressed={tvaNonApplicable}
+            className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+              tvaNonApplicable ? 'bg-orange-500' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                tvaNonApplicable ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
 
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex items-center justify-between pt-2">
@@ -625,7 +652,7 @@ export default function ComptePage() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('prenom, nom, telephone, metier, nom_entreprise, siret, adresse, statut_juridique, tva, iban, couleur_principale, message_remerciement, conditions_paiement')
+        .select('prenom, nom, telephone, metier, nom_entreprise, siret, adresse, statut_juridique, tva, iban, couleur_principale, message_remerciement, conditions_paiement, tva_non_applicable')
         .eq('id', user.id)
         .single()
 
@@ -638,6 +665,7 @@ export default function ComptePage() {
         nom_entreprise: null, siret: null, adresse: null, statut_juridique: null,
         tva: null, iban: null, couleur_principale: null,
         message_remerciement: null, conditions_paiement: null,
+        tva_non_applicable: null,
       })
       setLoading(false)
     }

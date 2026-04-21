@@ -9,6 +9,7 @@ export interface Prestation {
   unite: Unite
   prixHT: number
   tva: TVARate
+  note?: string   // sous-éléments / détail en italique
 }
 
 export interface Client {

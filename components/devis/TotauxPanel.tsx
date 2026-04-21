@@ -4,10 +4,14 @@ import type { TotauxDevis } from '@/types/devis'
 
 interface TotauxPanelProps {
   totaux: TotauxDevis
+  tvaNonApplicable?: boolean
   className?: string
 }
 
-export function TotauxPanel({ totaux, className }: TotauxPanelProps) {
+export function TotauxPanel({ totaux, tvaNonApplicable = false, className }: TotauxPanelProps) {
+  const totalLabel = tvaNonApplicable ? 'Total à payer' : 'Total TTC'
+  const totalValue = tvaNonApplicable ? totaux.totalHT : totaux.totalTTC
+
   return (
     <div className={cn('rounded-card border border-gray-100 bg-white shadow-card', className)}>
       <div className="p-5 pb-3">
@@ -17,28 +21,36 @@ export function TotauxPanel({ totaux, className }: TotauxPanelProps) {
       <div className="space-y-2 px-5 pb-4">
         <Row label="Total HT" value={formatEuros(totaux.totalHT)} />
 
-        {totaux.tvaDetails.map((t) => (
-          <Row
-            key={t.taux}
-            label={`TVA ${t.taux} %`}
-            value={formatEuros(t.montant)}
-            sub
-          />
-        ))}
-
-        {totaux.totalTVA === 0 && (
-          <Row label="TVA" value="0,00 €" sub />
+        {!tvaNonApplicable && (
+          <>
+            {totaux.tvaDetails.map((t) => (
+              <Row
+                key={t.taux}
+                label={`TVA ${t.taux} %`}
+                value={formatEuros(t.montant)}
+                sub
+              />
+            ))}
+            {totaux.totalTVA === 0 && (
+              <Row label="TVA" value="0,00 €" sub />
+            )}
+          </>
         )}
       </div>
 
-      {/* TTC highlight */}
+      {/* Total highlight */}
       <div className="mx-4 mb-4 rounded-xl bg-orange-50 px-5 py-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-orange-900">Total TTC</span>
+          <span className="text-sm font-semibold text-orange-900">{totalLabel}</span>
           <span className="text-2xl font-bold text-orange-600">
-            {formatEuros(totaux.totalTTC)}
+            {formatEuros(totalValue)}
           </span>
         </div>
+        {tvaNonApplicable && (
+          <p className="mt-1.5 text-[10px] text-orange-400">
+            TVA non applicable, art. 293B du CGI
+          </p>
+        )}
       </div>
     </div>
   )

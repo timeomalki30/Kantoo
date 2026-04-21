@@ -56,15 +56,17 @@ const INITIAL_STATE: DevisForm = {
 
 export function NouveauDevisForm() {
   const router = useRouter()
-  const [form, setForm]           = useState<DevisForm>(INITIAL_STATE)
-  const [saving, setSaving]       = useState(false)
-  const [sending, setSending]     = useState(false)
-  const [saved, setSaved]         = useState(false)
-  const [previewOpen, setPreview] = useState(false)
-  const [devisDbId, setDevisDbId] = useState<string | null>(null)
-  const [artisan, setArtisan]     = useState(FALLBACK_ARTISAN)
-  const [sentResult, setSentResult] = useState<{ token: string; numero: string } | null>(null)
-  const [copiedLink, setCopiedLink] = useState(false)
+  const [form, setForm]               = useState<DevisForm>(INITIAL_STATE)
+  const [saving, setSaving]           = useState(false)
+  const [sending, setSending]         = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [previewOpen, setPreview]     = useState(false)
+  const [devisDbId, setDevisDbId]     = useState<string | null>(null)
+  const [artisan, setArtisan]         = useState(FALLBACK_ARTISAN)
+  const [sentResult, setSentResult]   = useState<{ token: string; numero: string } | null>(null)
+  const [copiedLink, setCopiedLink]   = useState(false)
+  const [tvaNonApplicable, setTvaNonApplicable] = useState(false)
+  const [sendError, setSendError]     = useState('')
 
   const totaux = useMemo(() => calculerTotaux(form.prestations), [form.prestations])
 
@@ -78,7 +80,7 @@ export function NouveauDevisForm() {
 
       // Fetch profile for artisan info + devis count for numero
       const [profileRes, countRes] = await Promise.all([
-        supabase.from('profiles').select('prenom,nom,email,telephone,adresse,message_remerciement').eq('id', user.id).single(),
+        supabase.from('profiles').select('prenom,nom,email,telephone,adresse,message_remerciement,tva_non_applicable').eq('id', user.id).single(),
         supabase.from('devis').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
 
@@ -94,6 +96,7 @@ export function NouveauDevisForm() {
         if (p.message_remerciement) {
           setForm((f) => ({ ...f, messageClient: p.message_remerciement ?? '' }))
         }
+        setTvaNonApplicable(!!(p as { tva_non_applicable?: boolean }).tva_non_applicable)
       }
 
       const count = countRes.count ?? 0
@@ -212,10 +215,11 @@ export function NouveauDevisForm() {
   }
 
   function handleOpenPreview() {
-    if (!form.client.email) {
-      alert("Veuillez renseigner l'email du client pour envoyer le devis.")
+    if (!form.client.nom) {
+      setSendError('Veuillez renseigner le nom du client avant d\'envoyer le devis.')
       return
     }
+    setSendError('')
     setPreview(true)
   }
 
@@ -282,6 +286,9 @@ export function NouveauDevisForm() {
               >
                 Sauvegarder
               </Button>
+              {sendError && (
+                <span className="text-xs font-medium text-red-500">{sendError}</span>
+              )}
               <Button size="sm" icon={<Send className="h-4 w-4" />} onClick={handleOpenPreview}>
                 Envoyer au client
               </Button>
@@ -334,7 +341,7 @@ export function NouveauDevisForm() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-y border-gray-100 bg-gray-50/60">
-                        {['#', 'Description', 'Qté', 'Unité', 'Prix HT', 'TVA', 'Total HT', ''].map((h) => (
+                        {['#', 'Description', 'Qté', 'Unité', 'Prix HT', ...(tvaNonApplicable ? [] : ['TVA']), 'Total HT', ''].map((h) => (
                           <th key={h} className="px-2 py-2.5 text-left text-xs font-medium text-gray-400 last:w-10">{h}</th>
                         ))}
                       </tr>
@@ -345,6 +352,7 @@ export function NouveauDevisForm() {
                           onChange={(updated) => updatePrestation(p.id, updated)}
                           onRemove={() => removePrestation(p.id)}
                           canRemove={form.prestations.length > 1}
+                          tvaNonApplicable={tvaNonApplicable}
                         />
                       ))}
                     </tbody>
@@ -378,7 +386,7 @@ export function NouveauDevisForm() {
             {/* Sidebar */}
             <div>
               <div className="sticky top-20 space-y-4">
-                <TotauxPanel totaux={totaux} />
+                <TotauxPanel totaux={totaux} tvaNonApplicable={tvaNonApplicable} />
                 <div className="space-y-2">
                   <Button variant="secondary" size="lg" icon={<Save className="h-5 w-5" />}
                     loading={saving} onClick={handleSaveDraft} className="w-full"
@@ -414,6 +422,7 @@ export function NouveauDevisForm() {
           sending={sending}
           onClose={() => setPreview(false)}
           onConfirm={handleSend}
+          tvaNonApplicable={tvaNonApplicable}
         />
       )}
 
