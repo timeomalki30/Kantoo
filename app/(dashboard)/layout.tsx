@@ -3,9 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { DEV_USER } from '@/lib/supabase/dev-user'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
-import { Logo } from '@/components/ui/Logo'
+import { MobileHeader } from '@/components/layout/MobileHeader'
 import { ToastProvider } from '@/components/ui/Toast'
-import Link from 'next/link'
 
 export default async function DashboardLayout({
   children,
@@ -47,16 +46,8 @@ export default async function DashboardLayout({
       {/* ── Right column ─────────────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden">
 
-        {/* Mobile top header */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 lg:hidden">
-          <Logo size="sm" variant="full" />
-          <Link
-            href="/compte"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-600"
-          >
-            {initials}
-          </Link>
-        </header>
+        {/* Mobile top header — hidden on wizard pages */}
+        <MobileHeader initials={initials} />
 
         {/* Scrollable content — pb-16 on mobile to clear bottom nav */}
         <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">

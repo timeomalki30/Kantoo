@@ -13,8 +13,17 @@ const ITEMS = [
   { href: '/paiements', label: 'Paiements', icon: CreditCard },
 ]
 
+// Pages where the BottomNav must be hidden (wizards have their own nav)
+const WIZARD_PATHS = ['/devis/nouveau', '/factures/nouvelle']
+
 export function BottomNav() {
   const pathname = usePathname()
+
+  // Hide on wizard pages and individual facture edit pages
+  const isWizard =
+    WIZARD_PATHS.includes(pathname) ||
+    (/^\/factures\/[^/]+$/.test(pathname) && pathname !== '/factures')
+  if (isWizard) return null
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 backdrop-blur-md lg:hidden">

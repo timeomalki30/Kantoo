@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Send, Save, Plus,
@@ -61,14 +61,27 @@ function StepChantier({
   form: DevisForm
   setField: <K extends keyof DevisForm>(k: K, v: DevisForm[K]) => void
 }) {
+  // Local string state so the user can clear and retype freely
+  const [validiteStr, setValiditeStr] = useState(String(form.validiteJours || 30))
+
+  // Keep in sync if the parent value changes (e.g. on mount after profile load)
+  useEffect(() => {
+    setValiditeStr(String(form.validiteJours || 30))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const jours = parseInt(validiteStr, 10)
+  const validJours = !isNaN(jours) && jours > 0
+
   const dateExp = useMemo(
     () =>
-      new Intl.DateTimeFormat('fr-FR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }).format(new Date(dateValidite(form.validiteJours))),
-    [form.validiteJours]
+      validJours
+        ? new Intl.DateTimeFormat('fr-FR', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+          }).format(new Date(dateValidite(jours)))
+        : '',
+    [jours, validJours]
   )
 
   return (
@@ -103,16 +116,31 @@ function StepChantier({
         <TField label="Validité (jours)">
           <input
             className={touchInput}
-            type="number"
-            min={1}
-            max={365}
-            value={form.validiteJours}
-            onChange={(e) => setField('validiteJours', parseInt(e.target.value) || 30)}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="30"
+            value={validiteStr}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^0-9]/g, '')
+              setValiditeStr(raw)
+              const parsed = parseInt(raw, 10)
+              if (!isNaN(parsed) && parsed > 0 && parsed <= 365) {
+                setField('validiteJours', parsed)
+              }
+            }}
+            onBlur={() => {
+              const parsed = parseInt(validiteStr, 10)
+              if (isNaN(parsed) || parsed <= 0) {
+                setValiditeStr('30')
+                setField('validiteJours', 30)
+              }
+            }}
           />
         </TField>
       </div>
 
-      {form.validiteJours > 0 && (
+      {validJours && dateExp && (
         <p className="rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-700">
           Ce devis expire le <strong>{dateExp}</strong>
         </p>
