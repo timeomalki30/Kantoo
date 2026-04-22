@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Send, Save, FileCheck, ChevronLeft, AlertCircle, Lock } from 'lucide-react'
+import { Plus, Send, Save, FileCheck, ChevronLeft, AlertCircle, Lock, Paperclip } from 'lucide-react'
 import { nanoid } from 'nanoid'
 
 import { Button } from '@/components/ui/Button'
@@ -14,6 +14,7 @@ import { PrestationRow, PrestationCard } from '@/components/devis/PrestationRow'
 import { TotauxPanel } from '@/components/devis/TotauxPanel'
 import { MobileFactureWizard } from './MobileFactureWizard'
 import { DevisPreviewModal } from '@/components/devis/DevisPreviewModal'
+import { DocumentsAnnexes } from '@/components/devis/DocumentsAnnexes'
 import { createClient } from '@/lib/supabase/client'
 
 import {
@@ -22,12 +23,20 @@ import {
   dateAujourdhui,
   dateValidite,
 } from '@/lib/devis'
-import type { DevisForm, FactureForm, Prestation, ConditionsPaiement } from '@/types/devis'
+import type { DevisForm, FactureForm, Prestation, ConditionsPaiement, DocumentAnnexe } from '@/types/devis'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FALLBACK_ARTISAN = {
   name: 'Votre nom', email: '', phone: '', address: '',
+  siret: '', tva_intracom: '', statut_juridique: '',
+}
+
+// ─── SHA-256 helper (Web Crypto API) ─────────────────────────────────────────
+
+async function sha256(data: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 const CONDITIONS_OPTIONS = [
@@ -76,6 +85,7 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
   const [isEnvoyee, setIsEnvoyee] = useState(false)
   const [sendError, setSendError] = useState('')
   const [loading, setLoading]     = useState(!!factureId)
+  const [documents, setDocuments] = useState<DocumentAnnexe[]>([])
 
   const totaux    = useMemo(() => calculerTotaux(form.prestations), [form.prestations])
   const devisForm = useMemo(() => toDevisForm(form), [form])
@@ -90,7 +100,7 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
 
       const profilePromise = supabase
         .from('profiles')
-        .select('prenom,nom,email,telephone,adresse,siret,tva_non_applicable')
+        .select('prenom,nom,email,telephone,adresse,siret,tva,statut_juridique,tva_non_applicable')
         .eq('id', user.id)
         .single()
 
@@ -108,10 +118,22 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
 
       // Artisan info
       if (profileRes.data) {
-        const p = profileRes.data
+        const p = profileRes.data as typeof profileRes.data & {
+          tva?: string | null
+          statut_juridique?: string | null
+          tva_non_applicable?: boolean | null
+        }
         const fullName = [p.prenom, p.nom].filter(Boolean).join(' ') || user.email || 'Artisan'
-        setArtisan({ name: fullName, email: p.email ?? user.email ?? '', phone: p.telephone ?? '', address: p.adresse ?? '' })
-        setTvaNonApplicable(!!(p as { tva_non_applicable?: boolean }).tva_non_applicable)
+        setArtisan({
+          name:              fullName,
+          email:             p.email             ?? user.email ?? '',
+          phone:             p.telephone         ?? '',
+          address:           p.adresse           ?? '',
+          siret:             p.siret             ?? '',
+          tva_intracom:      p.tva               ?? '',
+          statut_juridique:  p.statut_juridique  ?? '',
+        })
+        setTvaNonApplicable(!!p.tva_non_applicable)
       }
 
       if (factureId) {
@@ -218,8 +240,20 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
       const { error } = await supabase.from('factures').update(payload).eq('id', factureDbId)
       return !error
     } else {
+      // Calcul du hash d'inaltérabilité à la création
+      const hashInput = JSON.stringify({
+        numero:        form.numero,
+        date_emission: form.date,
+        client_nom:    form.client.nom,
+        client_email:  form.client.email,
+        prestations:   form.prestations,
+        total_ht:      t.totalHT,
+        total_ttc:     t.totalTTC,
+      })
+      const created_hash = await sha256(hashInput)
+
       const { data: inserted, error } = await supabase
-        .from('factures').insert(payload).select('id').single()
+        .from('factures').insert({ ...payload, created_hash }).select('id').single()
       if (inserted) setFactureDbId(inserted.id)
       return !error
     }
@@ -442,6 +476,13 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
                   <p className="text-xs leading-relaxed text-amber-800">{MENTION_LEGALE}</p>
                 </div>
               </Card>
+
+              {/* Documents annexes */}
+              <DocumentsAnnexes
+                documents={documents}
+                onChange={setDocuments}
+                disabled={isEnvoyee}
+              />
             </div>
 
             {/* ── Sidebar ─────────────────────────────────────────────────── */}
@@ -496,6 +537,7 @@ export function NouvelleFactureForm({ factureId }: { factureId?: string }) {
           echeanceDate={form.echeanceDate}
           conditionsPaiement={form.conditionsPaiement}
           tvaNonApplicable={tvaNonApplicable}
+          documents={documents}
         />
       )}
     </>

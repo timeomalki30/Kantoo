@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { X, Send, ArrowLeft } from 'lucide-react'
 import { DevisDocument } from './DevisDocument'
-import type { DevisForm, TotauxDevis } from '@/types/devis'
+import type { DevisForm, TotauxDevis, DocumentAnnexe } from '@/types/devis'
 
 interface DevisPreviewModalProps {
   form:     DevisForm
@@ -16,6 +16,7 @@ interface DevisPreviewModalProps {
   echeanceDate?:       string
   conditionsPaiement?: string
   tvaNonApplicable?:   boolean
+  documents?:          DocumentAnnexe[]
 }
 
 export function DevisPreviewModal({
@@ -29,6 +30,7 @@ export function DevisPreviewModal({
   echeanceDate,
   conditionsPaiement,
   tvaNonApplicable = false,
+  documents = [],
 }: DevisPreviewModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -93,6 +95,7 @@ export function DevisPreviewModal({
                 echeanceDate={echeanceDate}
                 conditionsPaiement={conditionsPaiement}
                 tvaNonApplicable={tvaNonApplicable}
+                documents={documents}
               />
             </div>
           </div>

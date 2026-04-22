@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, FileCheck, FileText } from 'lucide-react'
+import { Plus, FileCheck, FileText, Download } from 'lucide-react'
 
 import { Badge }        from '@/components/ui/Badge'
 import { Card }         from '@/components/ui/Card'
 import { formatEuros }  from '@/lib/devis'
 import { createClient } from '@/lib/supabase/client'
 import { useToast }     from '@/components/ui/Toast'
+import { downloadCsv }  from '@/lib/exportCsv'
 import type { DevisStatus } from '@/components/ui/Badge'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,8 +19,11 @@ interface Facture {
   id:            string
   numero:        string | null
   titre:         string | null
+  total_ht:      number | null
+  total_tva:     number | null
   total_ttc:     number | null
   statut:        string | null
+  date_emission: string | null
   date_echeance: string | null
   created_at:    string | null
   clients: {
@@ -71,7 +75,7 @@ export default function FacturesPage() {
 
       const { data, error } = await supabase
         .from('factures')
-        .select('id, numero, titre, total_ttc, statut, date_echeance, created_at, clients(prenom, nom)')
+        .select('id, numero, titre, total_ht, total_tva, total_ttc, statut, date_emission, date_echeance, created_at, clients(prenom, nom)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -84,6 +88,25 @@ export default function FacturesPage() {
     }
     load()
   }, [router, toast])
+
+  // ── Export CSV ──────────────────────────────────────────────────────────────
+
+  function handleExport() {
+    const payees = factures.filter((f) => f.statut === 'payee' || f.statut === 'paye')
+    const headers = ['Numéro', 'Client', 'Titre', 'Montant HT (€)', 'TVA (€)', 'Montant TTC (€)', 'Date émission', 'Date échéance', 'Statut']
+    const rows = payees.map((f) => [
+      f.numero ?? '',
+      clientName(f),
+      f.titre ?? '',
+      (f.total_ht ?? 0).toFixed(2).replace('.', ','),
+      (f.total_tva ?? 0).toFixed(2).replace('.', ','),
+      (f.total_ttc ?? 0).toFixed(2).replace('.', ','),
+      f.date_emission ? new Date(f.date_emission).toLocaleDateString('fr-FR') : '',
+      f.date_echeance ? new Date(f.date_echeance).toLocaleDateString('fr-FR') : '',
+      f.statut ?? '',
+    ])
+    downloadCsv(`factures-payees-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
 
   // ── Derived metrics ─────────────────────────────────────────────────────────
   const encaisse  = factures
@@ -117,13 +140,24 @@ export default function FacturesPage() {
             {loading ? 'Chargement…' : `${factures.length} facture${factures.length !== 1 ? 's' : ''} au total`}
           </p>
         </div>
-        <Link
-          href="/factures/nouvelle"
-          className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          Nouvelle facture
-        </Link>
+        <div className="flex items-center gap-2">
+          {!loading && factures.some((f) => f.statut === 'payee' || f.statut === 'paye') && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              Exporter factures payées
+            </button>
+          )}
+          <Link
+            href="/factures/nouvelle"
+            className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle facture
+          </Link>
+        </div>
       </div>
 
       {/* Summary cards */}

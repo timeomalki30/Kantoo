@@ -1,13 +1,32 @@
 import { Logo } from '@/components/ui/Logo'
 import { formatEuros } from '@/lib/devis'
-import type { DevisForm, TotauxDevis } from '@/types/devis'
+import type { DevisForm, TotauxDevis, DocumentAnnexe, DocumentType } from '@/types/devis'
+
+const DOC_TYPE_LABEL: Record<DocumentType, string> = {
+  cgv:                 'CGV',
+  assurance_decennale: 'Assurance décennale',
+  attestation_tva:     'Attestation TVA',
+  rib:                 'RIB',
+  autre:               'Autre',
+}
+
+const STATUT_LABEL: Record<string, string> = {
+  'auto-entrepreneur': 'Auto-entrepreneur',
+  'eurl':              'EURL',
+  'sarl':              'SARL',
+  'sas':               'SAS',
+  'sasu':              'SASU',
+  'ei':                'Entreprise individuelle',
+}
 
 interface Artisan {
-  name:    string
-  email:   string
-  phone?:  string
-  address?: string
-  siret?:  string
+  name:              string
+  email:             string
+  phone?:            string
+  address?:          string
+  siret?:            string
+  tva_intracom?:     string  // numéro TVA intracommunautaire
+  statut_juridique?: string
 }
 
 const CONDITIONS_LABEL: Record<string, string> = {
@@ -25,6 +44,7 @@ interface DevisDocumentProps {
   echeanceDate?:       string
   conditionsPaiement?: string
   tvaNonApplicable?:   boolean
+  documents?:          DocumentAnnexe[]
 }
 
 function fmt(iso: string) {
@@ -57,6 +77,7 @@ export function DevisDocument({
   echeanceDate,
   conditionsPaiement,
   tvaNonApplicable = false,
+  documents = [],
 }: DevisDocumentProps) {
   const hasClient = form.client.nom || form.client.email
 
@@ -89,12 +110,18 @@ export function DevisDocument({
         <div>
           <Logo size="sm" className="mb-3" />
           <p className="text-[15px] font-bold text-gray-900">{artisan.name}</p>
+          {artisan.statut_juridique && (
+            <p className="text-[11px] font-medium text-gray-500">
+              {STATUT_LABEL[artisan.statut_juridique] ?? artisan.statut_juridique}
+            </p>
+          )}
           {artisan.address && <p className="mt-0.5 text-gray-500">{artisan.address}</p>}
           {artisan.phone   && <p className="text-gray-500">{artisan.phone}</p>}
           <p className="text-gray-500">{artisan.email}</p>
-          {artisan.siret   && (
-            <p className="mt-1 text-[11px] text-gray-400">SIRET : {artisan.siret}</p>
-          )}
+          <div className="mt-1 space-y-0.5">
+            {artisan.siret        && <p className="text-[11px] text-gray-400">SIRET : {artisan.siret}</p>}
+            {artisan.tva_intracom && <p className="text-[11px] text-gray-400">N° TVA : {artisan.tva_intracom}</p>}
+          </div>
         </div>
         <div className="text-right">
           <div className="inline-block rounded-xl bg-orange-50 px-5 py-3">
@@ -122,9 +149,20 @@ export function DevisDocument({
         <div className="rounded-xl bg-gray-50 p-4">
           <SectionLabel>De la part de</SectionLabel>
           <p className="font-semibold text-gray-900">{artisan.name}</p>
+          {artisan.statut_juridique && (
+            <p className="text-[11px] font-medium text-gray-500">
+              {STATUT_LABEL[artisan.statut_juridique] ?? artisan.statut_juridique}
+            </p>
+          )}
           {artisan.address && <p className="mt-0.5 text-gray-600">{artisan.address}</p>}
           {artisan.phone   && <p className="text-gray-600">{artisan.phone}</p>}
           <p className="text-gray-600">{artisan.email}</p>
+          {(artisan.siret || artisan.tva_intracom) && (
+            <div className="mt-1.5 space-y-0.5 border-t border-gray-200 pt-1.5">
+              {artisan.siret        && <p className="text-[11px] text-gray-500">SIRET : {artisan.siret}</p>}
+              {artisan.tva_intracom && <p className="text-[11px] text-gray-500">N° TVA : {artisan.tva_intracom}</p>}
+            </div>
+          )}
         </div>
         <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-4">
           <SectionLabel>À destination de</SectionLabel>
@@ -267,6 +305,31 @@ export function DevisDocument({
             : "Bon pour accord — Signature et mention manuscrite « Lu et approuvé » du client"}
         </p>
       </div>
+
+      {/* ── Documents annexes ───────────────────────────────────────────────── */}
+      {documents.length > 0 && (
+        <div className="mt-6 border-t border-gray-100 pt-5">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            Documents annexes
+          </p>
+          <ul className="space-y-1.5">
+            {documents.map((doc) => (
+              <li key={doc.id} className="flex items-center gap-2 text-[12px] text-gray-600">
+                <span className="text-gray-400">📎</span>
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-orange-600 hover:underline"
+                >
+                  {DOC_TYPE_LABEL[doc.type]}
+                </a>
+                <span className="text-gray-400">— {doc.nom}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

@@ -14,21 +14,25 @@ import { PrestationRow, PrestationCard } from './PrestationRow'
 import { TotauxPanel }                   from './TotauxPanel'
 import { MobileDevisWizard }             from './MobileDevisWizard'
 import { DevisPreviewModal }             from './DevisPreviewModal'
+import { DocumentsAnnexes }             from './DocumentsAnnexes'
 import { createClient }                  from '@/lib/supabase/client'
 
 import {
   calculerTotaux, genererNumeroDevis,
   dateAujourdhui, dateValidite,
 } from '@/lib/devis'
-import type { DevisForm, Prestation } from '@/types/devis'
+import type { DevisForm, Prestation, DocumentAnnexe } from '@/types/devis'
 
 // ─── Fallback artisan (while profile loads) ───────────────────────────────────
 
 const FALLBACK_ARTISAN = {
-  name:    'Votre nom',
-  email:   '',
-  phone:   '',
-  address: '',
+  name:             'Votre nom',
+  email:            '',
+  phone:            '',
+  address:          '',
+  siret:            '',
+  tva_intracom:     '',
+  statut_juridique: '',
 }
 
 function prestationVide(): Prestation {
@@ -67,6 +71,7 @@ export function NouveauDevisForm() {
   const [copiedLink, setCopiedLink]   = useState(false)
   const [tvaNonApplicable, setTvaNonApplicable] = useState(false)
   const [sendError, setSendError]     = useState('')
+  const [documents, setDocuments]     = useState<DocumentAnnexe[]>([])
 
   const totaux = useMemo(() => calculerTotaux(form.prestations), [form.prestations])
 
@@ -80,23 +85,31 @@ export function NouveauDevisForm() {
 
       // Fetch profile for artisan info + devis count for numero
       const [profileRes, countRes] = await Promise.all([
-        supabase.from('profiles').select('prenom,nom,email,telephone,adresse,message_remerciement,tva_non_applicable').eq('id', user.id).single(),
+        supabase.from('profiles').select('prenom,nom,email,telephone,adresse,siret,tva,statut_juridique,message_remerciement,tva_non_applicable').eq('id', user.id).single(),
         supabase.from('devis').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
 
       if (profileRes.data) {
-        const p = profileRes.data
+        const p = profileRes.data as typeof profileRes.data & {
+          siret?: string | null
+          tva?: string | null
+          statut_juridique?: string | null
+          tva_non_applicable?: boolean | null
+        }
         const fullName = [p.prenom, p.nom].filter(Boolean).join(' ') || user.email || 'Artisan'
         setArtisan({
-          name:    fullName,
-          email:   p.email    ?? user.email ?? '',
-          phone:   p.telephone ?? '',
-          address: p.adresse   ?? '',
+          name:             fullName,
+          email:            p.email            ?? user.email ?? '',
+          phone:            p.telephone        ?? '',
+          address:          p.adresse          ?? '',
+          siret:            p.siret            ?? '',
+          tva_intracom:     p.tva              ?? '',
+          statut_juridique: p.statut_juridique ?? '',
         })
         if (p.message_remerciement) {
           setForm((f) => ({ ...f, messageClient: p.message_remerciement ?? '' }))
         }
-        setTvaNonApplicable(!!(p as { tva_non_applicable?: boolean }).tva_non_applicable)
+        setTvaNonApplicable(!!p.tva_non_applicable)
       }
 
       const count = countRes.count ?? 0
@@ -381,6 +394,12 @@ export function NouveauDevisForm() {
                   className="min-h-[120px]"
                 />
               </Card>
+
+              {/* Documents annexes */}
+              <DocumentsAnnexes
+                documents={documents}
+                onChange={setDocuments}
+              />
             </div>
 
             {/* Sidebar */}
@@ -423,6 +442,7 @@ export function NouveauDevisForm() {
           onClose={() => setPreview(false)}
           onConfirm={handleSend}
           tvaNonApplicable={tvaNonApplicable}
+          documents={documents}
         />
       )}
 

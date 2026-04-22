@@ -3,13 +3,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Search, Link2, Copy, Check, X, Bell } from 'lucide-react'
+import { Plus, FileText, Search, Link2, Copy, Check, X, Bell, Download } from 'lucide-react'
 import { Badge }        from '@/components/ui/Badge'
 import { Card }         from '@/components/ui/Card'
 import { Button }       from '@/components/ui/Button'
 import { formatEuros }  from '@/lib/devis'
 import { createClient } from '@/lib/supabase/client'
 import { useToast }     from '@/components/ui/Toast'
+import { downloadCsv }  from '@/lib/exportCsv'
 import type { DevisStatus } from '@/components/ui/Badge'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -176,6 +177,19 @@ export default function DevisPage() {
 
   useEffect(() => { load() }, [load])
 
+  function handleExport() {
+    const headers = ['Numéro', 'Client', 'Chantier', 'Montant TTC (€)', 'Statut', 'Date']
+    const rows = devis.map((d) => [
+      d.numero ?? '',
+      clientName(d),
+      d.titre ?? '',
+      (d.total_ttc ?? 0).toFixed(2).replace('.', ','),
+      d.statut ?? '',
+      d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : '',
+    ])
+    downloadCsv(`devis-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
   const filtered = useMemo(() => {
     return devis.filter((d) => {
       const matchFilter = activeFilter === 'tous' || d.statut === activeFilter
@@ -200,13 +214,24 @@ export default function DevisPage() {
             {loading ? '…' : `${devis.length} devis au total`}
           </p>
         </div>
-        <Link
-          href="/devis/nouveau"
-          className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          Nouveau devis
-        </Link>
+        <div className="flex items-center gap-2">
+          {!loading && devis.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              Exporter
+            </button>
+          )}
+          <Link
+            href="/devis/nouveau"
+            className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau devis
+          </Link>
+        </div>
       </div>
 
       {/* Search + Filters */}

@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Phone, Mail, FileText, Users } from 'lucide-react'
-import { Card }         from '@/components/ui/Card'
-import { formatEuros }  from '@/lib/devis'
-import { createClient } from '@/lib/supabase/client'
+import { Plus, Search, Phone, Mail, FileText, Users, Download } from 'lucide-react'
+import { Card }           from '@/components/ui/Card'
+import { formatEuros }    from '@/lib/devis'
+import { createClient }   from '@/lib/supabase/client'
+import { downloadCsv }    from '@/lib/exportCsv'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,21 @@ export default function ClientsPage() {
 
   useEffect(() => { load() }, [load])
 
+  function handleExport() {
+    const headers = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Type', 'Entreprise', 'Nb devis', 'Montant total (€)']
+    const rows = clients.map((c) => [
+      c.prenom ?? '',
+      c.nom ?? '',
+      c.email ?? '',
+      c.telephone ?? '',
+      c.type === 'professionnel' ? 'Professionnel' : 'Particulier',
+      c.nom_entreprise ?? '',
+      c.nbDevis,
+      c.montantTotal.toFixed(2).replace('.', ','),
+    ])
+    downloadCsv(`clients-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     if (!q) return clients
@@ -144,13 +160,24 @@ export default function ClientsPage() {
             {loading ? '…' : `${clients.length} client${clients.length > 1 ? 's' : ''} au total`}
           </p>
         </div>
-        <Link
-          href="/clients/nouveau"
-          className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          Nouveau client
-        </Link>
+        <div className="flex items-center gap-2">
+          {!loading && clients.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              Exporter
+            </button>
+          )}
+          <Link
+            href="/clients/nouveau"
+            className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-200 transition-all hover:bg-orange-600 active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau client
+          </Link>
+        </div>
       </div>
 
       {/* Search */}

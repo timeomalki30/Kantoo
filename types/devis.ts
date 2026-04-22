@@ -1,5 +1,15 @@
 export type TVARate = 0 | 10 | 20
 
+export type DocumentType = 'cgv' | 'assurance_decennale' | 'attestation_tva' | 'rib' | 'autre'
+
+export interface DocumentAnnexe {
+  id: string
+  type: DocumentType
+  nom: string  // nom affiché (ex. "assurance-decennale.pdf")
+  url: string  // URL publique Supabase Storage
+  path: string // chemin de stockage pour suppression
+}
+
 export type Unite = 'h' | 'm²' | 'forfait' | 'u' | 'm' | 'm³'
 
 export interface Prestation {
