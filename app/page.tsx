@@ -630,6 +630,71 @@ function CTABanner() {
   )
 }
 
+// ─── Conformité légale ────────────────────────────────────────────────────────
+
+const BADGES = [
+  {
+    label: 'Conforme loi anti-fraude TVA',
+    sub:   'Décret n° 2021-1089',
+  },
+  {
+    label: 'Données hébergées en Europe',
+    sub:   'RGPD · Supabase EU',
+  },
+  {
+    label: 'Facturation électronique 2027',
+    sub:   'Prêt pour la réforme',
+  },
+]
+
+function ConformiteLegale() {
+  return (
+    <section className="border-t border-gray-100 bg-gray-50/60 py-14">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <FadeIn className="text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-orange-500">
+            Conformité légale
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-kantoo-text sm:text-3xl">
+            Une solution qui respecte la loi
+          </h2>
+          <p className="mt-3 text-sm text-gray-500">
+            Kantoo est conçu pour être conforme aux obligations légales françaises en matière de facturation.
+          </p>
+        </FadeIn>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {BADGES.map((b, i) => (
+            <FadeIn key={b.label} delay={i * 0.08}>
+              <div className="flex items-start gap-3 rounded-2xl border border-green-100 bg-white px-5 py-4 shadow-sm">
+                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100">
+                  <Check className="h-3.5 w-3.5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-kantoo-text">{b.label}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">{b.sub}</p>
+                </div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        <FadeIn className="mt-8 text-center" delay={0.28}>
+          <a
+            href="/attestation-conformite.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <Shield className="h-4 w-4 text-green-600" />
+            Télécharger l&apos;attestation de conformité
+          </a>
+        </FadeIn>
+      </div>
+    </section>
+  )
+}
+
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
@@ -670,6 +735,7 @@ export default function LandingPage() {
         <Pricing />
         <FAQ />
         <CTABanner />
+        <ConformiteLegale />
       </main>
       <Footer />
     </>

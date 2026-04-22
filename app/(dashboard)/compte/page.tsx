@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import {
   User, Building2, Palette, ShieldCheck,
-  Check, Eye, EyeOff, AlertTriangle, CheckCircle2, X,
+  Check, Eye, EyeOff, AlertTriangle, CheckCircle2, X, Download,
 } from 'lucide-react'
 
 import { Card }                    from '@/components/ui/Card'
@@ -633,6 +633,52 @@ function SectionSecurite() {
   )
 }
 
+// ─── 5. DOCUMENTS LÉGAUX ─────────────────────────────────────────────────────
+
+function SectionDocumentsLegaux() {
+  return (
+    <Card>
+      <SectionHeader
+        icon={ShieldCheck}
+        title="Documents légaux"
+        subtitle="Attestations et conformité réglementaire"
+      />
+
+      <div className="space-y-3">
+        {/* Badges conformité */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            'Conforme loi anti-fraude TVA',
+            'Données hébergées en Europe',
+            'Facturation électronique 2027',
+          ].map((label) => (
+            <span
+              key={label}
+              className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700"
+            >
+              <Check className="h-3 w-3" />
+              {label}
+            </span>
+          ))}
+        </div>
+
+        {/* Séparateur */}
+        <div className="border-t border-gray-100 pt-3">
+          <a
+            href="/attestation-conformite.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:scale-[0.98]"
+          >
+            <Download className="h-4 w-4 text-green-600" />
+            Télécharger l&apos;attestation de conformité
+          </a>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ComptePage() {
@@ -691,10 +737,11 @@ export default function ComptePage() {
         </p>
       </div>
 
-      <SectionProfil         profile={profile!} email={email} />
-      <SectionEntreprise     profile={profile!} />
+      <SectionProfil           profile={profile!} email={email} />
+      <SectionEntreprise       profile={profile!} />
       <SectionPersonnalisation profile={profile!} />
       <SectionSecurite />
+      <SectionDocumentsLegaux />
 
       <div className="h-4" />
     </div>
