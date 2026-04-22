@@ -679,17 +679,6 @@ function ConformiteLegale() {
           ))}
         </div>
 
-        <FadeIn className="mt-8 text-center" delay={0.28}>
-          <a
-            href="/attestation-conformite.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-          >
-            <Shield className="h-4 w-4 text-green-600" />
-            Télécharger l&apos;attestation de conformité
-          </a>
-        </FadeIn>
       </div>
     </section>
   )
@@ -705,12 +694,17 @@ function Footer() {
           <Logo size="sm" variant="full" />
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {[
-              { label: 'Mentions légales',  href: '/mentions-legales'  },
-              { label: 'CGV',               href: '/cgv'               },
-              { label: 'Confidentialité',   href: '/confidentialite'   },
-              { label: 'Contact',           href: 'mailto:hello@kantoo.fr' },
+              { label: 'Mentions légales',              href: '/mentions-legales'           },
+              { label: 'CGV',                           href: '/cgv'                        },
+              { label: 'Confidentialité',               href: '/confidentialite'            },
+              { label: 'Attestation de conformité',     href: '/attestation-conformite.pdf' },
+              { label: 'Contact',                       href: 'mailto:hello@kantoo.fr'      },
             ].map(({ label, href }) => (
-              <Link key={label} href={href} className="text-xs text-gray-400 hover:text-gray-700">
+              <Link key={label} href={href} className="text-xs text-gray-400 hover:text-gray-700"
+                {...(href.endsWith('.pdf') || href.startsWith('mailto')
+                  ? { target: '_blank', rel: 'noopener noreferrer' }
+                  : {})}
+              >
                 {label}
               </Link>
             ))}
